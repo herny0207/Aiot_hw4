@@ -89,13 +89,17 @@ def main():
     base_options = python.BaseOptions(model_asset_path=task_path)
     options = vision.HandLandmarkerOptions(
         base_options=base_options,
+        running_mode=vision.RunningMode.VIDEO,
         num_hands=1
     )
     landmarker = vision.HandLandmarker.create_from_options(options)
-    print("[OK] MediaPipe Hand Landmarker initialized!")
+    print("[OK] MediaPipe Hand Landmarker initialized (VIDEO Mode)!")
 
-    # 開啟攝影機
+    # 開啟攝影機並設定解析度以提升效能
     cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    
     if not cap.isOpened():
         print("[ERROR] Cannot open camera!")
         return
@@ -116,7 +120,10 @@ def main():
         frame = cv2.flip(frame, 1)  # 鏡像翻轉
         image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_rgb)
-        detection_result = landmarker.detect(mp_image)
+        
+        # 使用 detect_for_video 搭配時間戳記，大幅提升追蹤與推論效能
+        timestamp_ms = int(time.time() * 1000)
+        detection_result = landmarker.detect_for_video(mp_image, timestamp_ms)
 
         gesture = "Error"
         confidence = 0.0
