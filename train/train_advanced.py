@@ -17,53 +17,29 @@ from sklearn.metrics import (
 )
 
 
-def evaluate_model(name, model, X_test, y_test, threshold=0.6):
-    """
-    評估模型效能，並加入信心值門檻 (threshold) 判斷。
-    若預測機率低於門檻，則歸類為 Error (-1)，用以排除非剪刀、石頭、布的未知手勢。
-    """
-    y_proba = model.predict_proba(X_test)
-    y_pred = []
-    for p in y_proba:
-        if np.max(p) < threshold:
-            y_pred.append(-1)  # -1 代表 Error / Unknown
-        else:
-            y_pred.append(np.argmax(p))
-            
-    y_pred = np.array(y_pred)
-    
-    # 計算一般指標時，我們只看非 Error 的部分，或是把 Error 當成預測錯誤
-    # 這裡我們把 -1 也當作一個類別來計算
-    labels_with_error = [-1, 0, 1, 2]
-    target_names = ['Error', 'Rock', 'Paper', 'Scissors']
-    
+def evaluate_model(name, model, X_test, y_test):
+    """評估模型效能並印出詳細報告"""
+    y_pred = model.predict(X_test)
     acc = accuracy_score(y_test, y_pred)
-    prec = precision_score(y_test, y_pred, labels=[0, 1, 2], average='weighted', zero_division=0)
-    rec = recall_score(y_test, y_pred, labels=[0, 1, 2], average='weighted', zero_division=0)
-    f1 = f1_score(y_test, y_pred, labels=[0, 1, 2], average='weighted', zero_division=0)
+    prec = precision_score(y_test, y_pred, average='weighted')
+    rec = recall_score(y_test, y_pred, average='weighted')
+    f1 = f1_score(y_test, y_pred, average='weighted')
 
     print(f"\n{'=' * 45}")
-    print(f"  📊 {name} Results (Threshold = {threshold})")
+    print(f"  📊 {name} Results")
     print(f"{'=' * 45}")
-    print(f"  Accuracy (incl. Error): {acc:.4f}")
-    print(f"  Precision (RPS only):   {prec:.4f}")
-    print(f"  Recall (RPS only):      {rec:.4f}")
-    print(f"  F1-Score (RPS only):    {f1:.4f}")
-    
-    error_count = np.sum(y_pred == -1)
-    print(f"  🚨 Rejections (Error):  {error_count} / {len(y_test)} samples")
-
+    print(f"  Accuracy:  {acc:.4f}")
+    print(f"  Precision: {prec:.4f}")
+    print(f"  Recall:    {rec:.4f}")
+    print(f"  F1-Score:  {f1:.4f}")
     print(f"\n  Confusion Matrix:")
-    cm = confusion_matrix(y_test, y_pred, labels=labels_with_error)
-    print(f"  {'':>10s} {'Pred_Err':>9s} {'Pred_R':>8s} {'Pred_P':>8s} {'Pred_S':>8s}")
-    # y_test 中不會有 -1，所以實際類別只有 Rock, Paper, Scissors (對應 index 1, 2, 3)
-    for i, true_label in enumerate(['Rock', 'Paper', 'Scissors']):
-        row = cm[i + 1] # +1 因為 cm 的第 0 個 row 是 true_label=-1
-        print(f"  {true_label:>10s} {row[0]:>9d} {row[1]:>8d} {row[2]:>8d} {row[3]:>8d}")
-        
+    cm = confusion_matrix(y_test, y_pred)
+    labels = ['Rock', 'Paper', 'Scissors']
+    print(f"  {'':>10s} {'Pred_R':>8s} {'Pred_P':>8s} {'Pred_S':>8s}")
+    for i, row in enumerate(cm):
+        print(f"  {labels[i]:>10s} {row[0]:>8d} {row[1]:>8d} {row[2]:>8d}")
     print(f"\n  Detailed Classification Report:")
-    # 由於 y_test 沒有 -1，classification_report 可能會給出 warning，所以我們安全處理
-    print(classification_report(y_test, y_pred, labels=labels_with_error, target_names=target_names, zero_division=0))
+    print(classification_report(y_test, y_pred, target_names=labels))
 
     return {'name': name, 'acc': acc, 'prec': prec, 'rec': rec, 'f1': f1, 'model': model}
 
@@ -120,17 +96,22 @@ def main():
         winner = "SVM" if svm_val >= rf_val else "RF"
         print(f"  {label:<12s} {svm_val:>10.4f} {rf_val:>10.4f} {winner:>10s}")
 
-    # === Save Best Model ===
-    best = results_svm if results_svm['acc'] >= results_rf['acc'] else results_rf
-    print(f"\n  🥇 Best Model: {best['name']} (Accuracy: {best['acc']:.4f})")
-
+    # === Save Models ===
     demo_dir = os.path.join(base_dir, 'demo')
     os.makedirs(demo_dir, exist_ok=True)
 
-    model_save_path = os.path.join(demo_dir, 'best_landmark_model.pkl')
-    joblib.dump(best['model'], model_save_path)
-    print(f"\n✅ Best model saved to: {model_save_path}")
-    print("   → Use this model with carema_landmark.py for real-time demo.")
+    # 儲存 SVM 模型 (原本最好的模型)
+    svm_model_path = os.path.join(demo_dir, 'rps_svm_model.pkl')
+    joblib.dump(svm_model, svm_model_path)
+    print(f"✅ SVM model saved to: {svm_model_path}")
+
+    # 儲存隨機森林模型
+    rf_model_path = os.path.join(demo_dir, 'rps_rf_model.pkl')
+    joblib.dump(rf_model, rf_model_path)
+    print(f"✅ Random Forest model saved to: {rf_model_path}")
+
+    print("\n   → Use carema_svm.py for SVM demo.")
+    print("   → Use carema_rf.py for Random Forest demo.")
 
 
 if __name__ == "__main__":
