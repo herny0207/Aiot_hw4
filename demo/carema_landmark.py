@@ -10,7 +10,6 @@ import joblib
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
-from mediapipe import solutions
 import os
 import time
 
@@ -53,32 +52,17 @@ def normalize_landmarks(hand_landmarks):
 
 
 def draw_landmarks_on_image(image, detection_result):
-    """在影像上繪製手部骨架"""
+    """在影像上繪製手部骨架 (自行繪製以避免舊版 solutions 模組載入錯誤)"""
     if not detection_result.hand_landmarks:
         return image
 
-    hand_landmarks_proto = solutions.hands.HandLandmark
-    mp_drawing = solutions.drawing_utils
-    mp_drawing_styles = solutions.drawing_styles
-    hand_connections = solutions.hands.HAND_CONNECTIONS
-
+    h, w, _ = image.shape
     for hand_landmarks in detection_result.hand_landmarks:
-        # 轉換為 NormalizedLandmarkList (proto format) 以便繪製
-        from mediapipe.framework.formats import landmark_pb2
-        hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
+        # 手動繪製 21 個特徵點
         for lm in hand_landmarks:
-            landmark = hand_landmarks_proto.landmark.add()
-            landmark.x = lm.x
-            landmark.y = lm.y
-            landmark.z = lm.z
-
-        mp_drawing.draw_landmarks(
-            image,
-            hand_landmarks_proto,
-            solutions.hands.HAND_CONNECTIONS,
-            mp_drawing_styles.get_default_hand_landmarks_style(),
-            mp_drawing_styles.get_default_hand_connections_style()
-        )
+            cx, cy = int(lm.x * w), int(lm.y * h)
+            cv2.circle(image, (cx, cy), 5, (0, 255, 0), -1)
+            
     return image
 
 
