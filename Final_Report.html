@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>AIoT HW4 - Final Report</title>
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-top: 50px;
+        }
+        h2 {
+            color: #2980b9;
+            border-left: 5px solid #3498db;
+            padding-left: 10px;
+            margin-top: 30px;
+            page-break-after: avoid;
+        }
+        img {
+            max-width: 100%;
+            border: 1px solid #ccc;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Part 1. Raspberry Pi 4 執行截圖</h1>
+        <p>在 Raspberry Pi 4 上成功執行 test.py 與 carema.py：</p>
+        
+        <div style="display: flex; gap: 20px; justify-content: center; align-items: flex-start; margin-bottom: 20px;">
+            <div style="flex: 1; text-align: center;">
+                <h2 style="margin-top: 0; border: none; padding: 0;">test.py 執行截圖</h2>
+                <img src="IMG20260512111623.jpg" alt="test.py execution" style="max-height: 350px; width: auto; object-fit: contain;">
+            </div>
+            <div style="flex: 1; text-align: center;">
+                <h2 style="margin-top: 0; border: none; padding: 0;">carema.py 執行截圖</h2>
+                <img src="IMG20260512111521.jpg" alt="carema.py execution" style="max-height: 350px; width: auto; object-fit: contain;">
+            </div>
+        </div>
+
+        <div class="page-break"></div>
+
+        <!-- Part 3 內容 -->
+        <div class="container">
+        <h1>Part 3. 技術報告：手勢辨識模型優化與比較</h1>
+        <p style="text-align: right;"><strong>課程：AIoT 系統實務</strong> | <strong>作業：HW4</strong></p>
+
+        <h2>1. 更換模型之原因與設計思路</h2>
+        <p>原本的範例程式碼使用灰階影像像素 (Raw Pixels) 作為特徵，其解析度 64x64 產生 4,096 個特徵。這種方法極易受背景光線與手部位置影響。</p>
+        <p><strong>本專案優化亮點：</strong></p>
+        <ul>
+            <li>改用 <strong>MediaPipe Hands</strong> 提取 21 個手部地標 (Landmarks)。</li>
+            <li>將特徵大幅精簡至 63 個座標值，提升運算效率。</li>
+            <li><strong>平移與比例正規化</strong>：消除手掌大小與畫面位置的干擾。</li>
+        </ul>
+
+        <h2>2. 模型架構解釋與修改</h2>
+        <h3>模型 A：SVM+mediapipe</h3>
+        <p>原本老師提供的範例直接以灰階像素作為 SVM 的輸入特徵，容易受光線與背景干擾。因此我們導入了 <strong>MediaPipe</strong> 來優化特徵提取，其主要優點包含：</p>
+        <ul>
+            <li><strong>精準定位與降維：</strong> 直接精確擷取 21 個手部骨架關鍵點，將數千維的像素特徵大幅降至 63 維，提升了運算效率。</li>
+            <li><strong>抗背景與光線干擾：</strong> 由於只關注手部結構座標，完全排除了背景雜訊與環境光影的影響。</li>
+            <li><strong>穩定性高：</strong> 透過座標正規化處理後，無論手勢在畫面中的大小與位置為何，SVM 都能更穩定地分類。</li>
+        </ul>
+        <p>基於上述 MediaPipe 提取的高品質特徵，後端 SVM 採用 <strong>RBF 核函數 (C=10.0)</strong>，更能精確地區分不同手勢間的空間幾何距離，將準確率推升至極高水平。</p>
+        
+        <h3>模型 B：Random Forest (隨機森林)</h3>
+        <p>使用 <strong>200 棵決策樹 (n_estimators=200)</strong>。透過多棵樹的隨機投票，試圖在非線性地標數據中尋找分類邊界。</p>
+
+        <h2>3. 模型效能比較 (實測數據)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>指標 (Metric)</th>
+                    <th>SVM+mediapipe</th>
+                    <th>Random Forest</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Accuracy (準確率)</td>
+                    <td class="highlight">0.9377</td>
+                    <td>0.7696</td>
+                </tr>
+                <tr>
+                    <td>Precision (精確率)</td>
+                    <td class="highlight">0.9450</td>
+                    <td>0.8647</td>
+                </tr>
+                <tr>
+                    <td>Recall (召回率)</td>
+                    <td class="highlight">0.9377</td>
+                    <td>0.7696</td>
+                </tr>
+                <tr>
+                    <td>F1-Score (F1值)</td>
+                    <td class="highlight">0.9364</td>
+                    <td>0.7447</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>4. 差異分析與解釋</h2>
+        <p><strong>分析結論：</strong></p>
+        <ol>
+            <li><strong>SVM 勝出原因</strong>：RBF 核函數極佳地捕捉了手部關鍵點之間的幾何空間關係，在測試集中達到了接近 94% 的高準確率。</li>
+            <li><strong>RF 弱點</strong>：在連續型座標點的分佈切分上，隨機森林容易因過度分割而損失細節，尤其在「布」的判斷上較易混淆。</li>
+        </ol>
+
+
+
+        <div class="footer">
+            <p>© 2026 AIoT HW4 報告產生器 - Antigravity</p>
+        </div>
+    </div>
+
+
+    </div>
+</body>
+</html>
