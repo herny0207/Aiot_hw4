@@ -132,8 +132,24 @@ def main():
             # 繪製手部骨架
             frame = draw_landmarks_on_image(frame, detection_result)
 
-            # 提取並正規化特徵
             hand_landmarks = detection_result.hand_landmarks[0]
+            
+            # --- 幾何啟發式判斷 (Geometric Heuristic) ---
+            # 透過計算指尖與手腕的距離，判斷手指是否伸直 (不受手掌旋轉影響)
+            def get_dist(lm1, lm2):
+                return ((lm1.x - lm2.x)**2 + (lm1.y - lm2.y)**2)**0.5
+            
+            wrist = hand_landmarks[0]
+            index_ext = get_dist(hand_landmarks[8], wrist) > get_dist(hand_landmarks[6], wrist)
+            middle_ext = get_dist(hand_landmarks[12], wrist) > get_dist(hand_landmarks[10], wrist)
+            ring_ext = get_dist(hand_landmarks[16], wrist) > get_dist(hand_landmarks[14], wrist)
+            pinky_ext = get_dist(hand_landmarks[20], wrist) > get_dist(hand_landmarks[18], wrist)
+            
+            is_rock = not index_ext and not middle_ext and not ring_ext and not pinky_ext
+            is_scissors = index_ext and middle_ext and not ring_ext and not pinky_ext
+            is_paper = index_ext and middle_ext and ring_ext and pinky_ext
+            
+            # 提取並正規化特徵
             features = normalize_landmarks(hand_landmarks)
             features_array = np.array(features).reshape(1, -1)
 
@@ -141,15 +157,17 @@ def main():
             if hasattr(clf, 'predict_proba'):
                 proba = clf.predict_proba(features_array)[0]
                 confidence = max(proba)
-                
-                # 加入閥值判斷，低於 0.6 視為 Error (排除非剪刀石頭布的手勢)
-                if confidence < 0.6:
-                    gesture = "Error"
-                else:
-                    prediction = np.argmax(proba)
-                    gesture = LABELS.get(prediction, "Error")
+                prediction = np.argmax(proba)
             else:
                 prediction = clf.predict(features_array)[0]
+                confidence = 1.0
+
+            # 雙重驗證：必須符合基本的剪刀石頭布手指特徵，且信心度夠高，否則就是 Error
+            if not (is_rock or is_scissors or is_paper):
+                gesture = "Error"
+            elif confidence < 0.6:
+                gesture = "Error"
+            else:
                 gesture = LABELS.get(prediction, "Error")
 
         # 繪製結果
