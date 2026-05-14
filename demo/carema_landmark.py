@@ -146,14 +146,20 @@ def main():
             features = normalize_landmarks(hand_landmarks)
             features_array = np.array(features).reshape(1, -1)
 
-            # 預測
-            prediction = clf.predict(features_array)[0]
-            gesture = LABELS.get(prediction, "Error")
-
-            # 如果模型支援 probability, 取得信心度
+            # 預測與信心度評估
             if hasattr(clf, 'predict_proba'):
                 proba = clf.predict_proba(features_array)[0]
                 confidence = max(proba)
+                
+                # 加入閥值判斷，低於 0.6 視為 Error (排除非剪刀石頭布的手勢)
+                if confidence < 0.6:
+                    gesture = "Error"
+                else:
+                    prediction = np.argmax(proba)
+                    gesture = LABELS.get(prediction, "Error")
+            else:
+                prediction = clf.predict(features_array)[0]
+                gesture = LABELS.get(prediction, "Error")
 
         # 繪製結果
         color = LABEL_COLORS.get(gesture, (128, 128, 128))
